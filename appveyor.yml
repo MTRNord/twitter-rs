@@ -22,8 +22,8 @@ matrix:
   - TARGET: nightly-i686-pc-windows-gnu
 
 cache:
-  - '%USERPROFILE%\.cargo -> Cargo.toml'
-  - '%USERPROFILE%\.rustup'
+  # - '%USERPROFILE%\.cargo -> Cargo.toml'
+  # - '%USERPROFILE%\.rustup'
 
 install:
   - curl -sSf -o rustup-init.exe https://win.rustup.rs/

@@ -847,7 +847,7 @@ impl<'a> DraftTweet<'a> {
     }
 
     ///Send the assembled tweet as the authenticated user.
-    pub fn send(&self, token: &auth::Token) -> FutureResponse<Tweet> {
+    pub fn send(&self, token: &auth::Token) -> impl Future<Item=Response<Tweet>, Error=error::Error> {
         let mut params = HashMap::new();
         add_param(&mut params, "status", self.text.clone());
 

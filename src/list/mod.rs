@@ -70,6 +70,7 @@
 use std::collections::HashMap;
 
 use chrono;
+use futures::Future;
 use serde::Deserialize;
 
 use crate::common::*;
@@ -219,7 +220,7 @@ impl<'a> ListUpdate<'a> {
     }
 
     ///Sends the update request to Twitter.
-    pub fn send(self, token: &auth::Token) -> FutureResponse<List> {
+    pub fn send(self, token: &auth::Token) -> impl Future<Item=Response<List>, Error=error::Error> {
         let mut params = HashMap::new();
         add_list_param(&mut params, &self.list);
 

@@ -91,7 +91,7 @@ where
 }
 
 /// Lookup user information for a single user.
-pub fn show<'a, T: Into<UserID<'a>>>(acct: T, token: &auth::Token) -> FutureResponse<TwitterUser> {
+pub fn show<'a, T: Into<UserID<'a>>>(acct: T, token: &auth::Token) -> impl Future<Item=Response<TwitterUser>, Error=error::Error> {
     let mut params = HashMap::new();
     add_name_param(&mut params, &acct.into());
 
@@ -110,7 +110,7 @@ pub fn friends_no_retweets(token: &auth::Token) -> FutureResponse<Vec<u64>> {
 }
 
 /// Lookup relationship settings between two arbitrary users.
-pub fn relation<'a, F, T>(from: F, to: T, token: &auth::Token) -> FutureResponse<Relationship>
+pub fn relation<'a, F, T>(from: F, to: T, token: &auth::Token) -> impl Future<Item=Response<Relationship>, Error=error::Error>
 where
     F: Into<UserID<'a>>,
     T: Into<UserID<'a>>,
@@ -301,7 +301,7 @@ pub fn follow<'a, T: Into<UserID<'a>>>(
     acct: T,
     notifications: bool,
     token: &auth::Token,
-) -> FutureResponse<TwitterUser> {
+) -> impl Future<Item=Response<TwitterUser>, Error=error::Error> {
     let mut params = HashMap::new();
     add_name_param(&mut params, &acct.into());
     add_param(&mut params, "follow", notifications.to_string());
@@ -320,7 +320,7 @@ pub fn follow<'a, T: Into<UserID<'a>>>(
 pub fn unfollow<'a, T: Into<UserID<'a>>>(
     acct: T,
     token: &auth::Token,
-) -> FutureResponse<TwitterUser> {
+) -> impl Future<Item=Response<TwitterUser>, Error=error::Error> {
     let mut params = HashMap::new();
     add_name_param(&mut params, &acct.into());
 
@@ -340,7 +340,7 @@ pub fn update_follow<'a, T>(
     notifications: Option<bool>,
     retweets: Option<bool>,
     token: &auth::Token,
-) -> FutureResponse<Relationship>
+) -> impl Future<Item=Response<Relationship>, Error=error::Error>
 where
     T: Into<UserID<'a>>,
 {
@@ -361,7 +361,7 @@ where
 /// Block the given account with the authenticated user.
 ///
 /// Upon success, the future returned by this function yields the given user.
-pub fn block<'a, T: Into<UserID<'a>>>(acct: T, token: &auth::Token) -> FutureResponse<TwitterUser> {
+pub fn block<'a, T: Into<UserID<'a>>>(acct: T, token: &auth::Token) -> impl Future<Item=Response<TwitterUser>, Error=error::Error> {
     let mut params = HashMap::new();
     add_name_param(&mut params, &acct.into());
 
@@ -376,7 +376,7 @@ pub fn block<'a, T: Into<UserID<'a>>>(acct: T, token: &auth::Token) -> FutureRes
 pub fn report_spam<'a, T: Into<UserID<'a>>>(
     acct: T,
     token: &auth::Token,
-) -> FutureResponse<TwitterUser> {
+) -> impl Future<Item=Response<TwitterUser>, Error=error::Error> {
     let mut params = HashMap::new();
     add_name_param(&mut params, &acct.into());
 
@@ -391,7 +391,7 @@ pub fn report_spam<'a, T: Into<UserID<'a>>>(
 pub fn unblock<'a, T: Into<UserID<'a>>>(
     acct: T,
     token: &auth::Token,
-) -> FutureResponse<TwitterUser> {
+) -> impl Future<Item=Response<TwitterUser>, Error=error::Error> {
     let mut params = HashMap::new();
     add_name_param(&mut params, &acct.into());
 
@@ -403,7 +403,7 @@ pub fn unblock<'a, T: Into<UserID<'a>>>(
 /// Mute the given user with the authenticated user.
 ///
 /// Upon success, the future returned by this function yields the given user.
-pub fn mute<'a, T: Into<UserID<'a>>>(acct: T, token: &auth::Token) -> FutureResponse<TwitterUser> {
+pub fn mute<'a, T: Into<UserID<'a>>>(acct: T, token: &auth::Token) -> impl Future<Item=Response<TwitterUser>, Error=error::Error> {
     let mut params = HashMap::new();
     add_name_param(&mut params, &acct.into());
 
@@ -418,7 +418,7 @@ pub fn mute<'a, T: Into<UserID<'a>>>(acct: T, token: &auth::Token) -> FutureResp
 pub fn unmute<'a, T: Into<UserID<'a>>>(
     acct: T,
     token: &auth::Token,
-) -> FutureResponse<TwitterUser> {
+) -> impl Future<Item=Response<TwitterUser>, Error=error::Error> {
     let mut params = HashMap::new();
     add_name_param(&mut params, &acct.into());
 

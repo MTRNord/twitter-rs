@@ -385,13 +385,13 @@ enum UploadInner {
     /// The `UploadFuture` has yet to initialize the upload session.
     PreInit,
     /// The `UploadFuture` is waiting to initialize the media upload session.
-    WaitingForInit(FutureResponse<RawMedia>),
+    WaitingForInit(Box<Future<Item=Response<RawMedia>, Error=error::Error>>),
     /// The `UploadFuture` is in the progress of uploading data.
     UploadingChunk(u64, usize, FutureResponse<()>),
     /// The `UploadFuture` failed to upload a chunk of data and is waiting to re-send it.
     FailedChunk(u64, usize),
     /// The `UploadFuture` is currently finalizing the media with Twitter.
-    Finalizing(u64, FutureResponse<RawMedia>),
+    Finalizing(u64, Box<Future<Item=Response<RawMedia>, Error=error::Error>>),
     /// The `UploadFuture` failed to finalize the upload session, and is waiting to retry.
     FailedFinalize(u64),
     /// The `UploadFuture` is waiting on Twitter to finish processing a video or gif.
@@ -418,7 +418,7 @@ impl<'a> UploadFuture<'a> {
         }
     }
 
-    fn init(&self) -> FutureResponse<RawMedia> {
+    fn init(&self) -> impl Future<Item=Response<RawMedia>, Error=error::Error> {
         let mut params = HashMap::new();
 
         add_param(&mut params, "command", "INIT");
@@ -467,7 +467,7 @@ impl<'a> UploadFuture<'a> {
         }
     }
 
-    fn finalize(&self, media_id: u64) -> FutureResponse<RawMedia> {
+    fn finalize(&self, media_id: u64) -> impl Future<Item=Response<RawMedia>, Error=error::Error> {
         let mut params = HashMap::new();
 
         add_param(&mut params, "command", "FINALIZE");
@@ -477,7 +477,7 @@ impl<'a> UploadFuture<'a> {
         make_parsed_future(req)
     }
 
-    fn status(&self, media_id: u64) -> FutureResponse<RawMedia> {
+    fn status(&self, media_id: u64) -> impl Future<Item=Response<RawMedia>, Error=error::Error> {
         let mut params = HashMap::new();
 
         add_param(&mut params, "command", "STATUS");
@@ -523,7 +523,7 @@ impl<'a> Future for UploadFuture<'a> {
 
         match replace(&mut self.status, UploadInner::Invalid) {
             UploadInner::PreInit => {
-                self.status = UploadInner::WaitingForInit(self.init());
+                self.status = UploadInner::WaitingForInit(Box::new(self.init()));
                 self.poll()
             }
             UploadInner::WaitingForInit(mut init) => {
@@ -557,7 +557,7 @@ impl<'a> Future for UploadFuture<'a> {
                         self.status = UploadInner::UploadingChunk(id, chunk_idx, upload);
                     } else {
                         let loader = self.finalize(id);
-                        self.status = UploadInner::Finalizing(id, loader);
+                        self.status = UploadInner::Finalizing(id, Box::new(loader));
                     }
 
                     self.poll()
@@ -635,7 +635,7 @@ impl<'a> Future for UploadFuture<'a> {
                     self.status = UploadInner::PreInit;
                 } else {
                     let finalize = self.finalize(id);
-                    self.status = UploadInner::Finalizing(id, finalize);
+                    self.status = UploadInner::Finalizing(id, Box::new(finalize));
                 }
                 self.poll()
             }
@@ -647,7 +647,7 @@ impl<'a> Future for UploadFuture<'a> {
                     }
                     Ok(Async::Ready(())) => {
                         let loader = self.status(id);
-                        self.status = UploadInner::Finalizing(id, loader);
+                        self.status = UploadInner::Finalizing(id, Box::new(loader));
                         self.poll()
                     }
                     // Delay will only return an error if the runtime has shut down, so don't

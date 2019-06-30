@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use super::*;
 
 ///Lookup a single tweet by numeric ID.
-pub fn show(id: u64, token: &auth::Token) -> FutureResponse<Tweet> {
+pub fn show(id: u64, token: &auth::Token) -> impl Future<Item=Response<Tweet>, Error=error::Error> {
     let mut params = HashMap::new();
     add_param(&mut params, "id", id.to_string());
     add_param(&mut params, "include_my_retweet", "true");
@@ -214,7 +214,7 @@ pub fn liked_by<'a, T: Into<UserID<'a>>>(acct: T, token: &auth::Token) -> Timeli
 ///
 ///On success, the future returned by this function yields the retweet, with the original status
 ///contained in `retweeted_status`.
-pub fn retweet(id: u64, token: &auth::Token) -> FutureResponse<Tweet> {
+pub fn retweet(id: u64, token: &auth::Token) -> impl Future<Item=Response<Tweet>, Error=error::Error> {
     let mut params = HashMap::new();
     add_param(&mut params, "tweet_mode", "extended");
 
@@ -231,7 +231,7 @@ pub fn retweet(id: u64, token: &auth::Token) -> FutureResponse<Tweet> {
 ///it.
 ///
 ///On success, the future returned by this function yields the original tweet.
-pub fn unretweet(id: u64, token: &auth::Token) -> FutureResponse<Tweet> {
+pub fn unretweet(id: u64, token: &auth::Token) -> impl Future<Item=Response<Tweet>, Error=error::Error> {
     let mut params = HashMap::new();
     add_param(&mut params, "tweet_mode", "extended");
 
@@ -245,7 +245,7 @@ pub fn unretweet(id: u64, token: &auth::Token) -> FutureResponse<Tweet> {
 ///Like the given status as the authenticated user.
 ///
 ///On success, the future returned by this function yields the liked tweet.
-pub fn like(id: u64, token: &auth::Token) -> FutureResponse<Tweet> {
+pub fn like(id: u64, token: &auth::Token) -> impl Future<Item=Response<Tweet>, Error=error::Error> {
     let mut params = HashMap::new();
     add_param(&mut params, "id", id.to_string());
     add_param(&mut params, "tweet_mode", "extended");
@@ -258,7 +258,7 @@ pub fn like(id: u64, token: &auth::Token) -> FutureResponse<Tweet> {
 ///Clears a like of the given status as the authenticated user.
 ///
 ///On success, the future returned by this function yields the given tweet.
-pub fn unlike(id: u64, token: &auth::Token) -> FutureResponse<Tweet> {
+pub fn unlike(id: u64, token: &auth::Token) -> impl Future<Item=Response<Tweet>, Error=error::Error> {
     let mut params = HashMap::new();
     add_param(&mut params, "id", id.to_string());
     add_param(&mut params, "tweet_mode", "extended");
@@ -271,7 +271,7 @@ pub fn unlike(id: u64, token: &auth::Token) -> FutureResponse<Tweet> {
 ///Delete the given tweet. The authenticated user must be the user who posted the given tweet.
 ///
 ///On success, the future returned by this function yields the given tweet.
-pub fn delete(id: u64, token: &auth::Token) -> FutureResponse<Tweet> {
+pub fn delete(id: u64, token: &auth::Token) -> impl Future<Item=Response<Tweet>, Error=error::Error> {
     let mut params = HashMap::new();
     add_param(&mut params, "tweet_mode", "extended");
 

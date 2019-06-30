@@ -27,7 +27,7 @@ use super::*;
 /// assert!(result.full_name == "Dallas, TX");
 /// # }
 /// ```
-pub fn show(id: &str, token: &auth::Token) -> FutureResponse<Place> {
+pub fn show(id: &str, token: &auth::Token) -> impl Future<Item=Response<Place>, Error=error::Error> {
     let url = format!("{}/{}.json", links::place::SHOW_STEM, id);
 
     let req = auth::get(&url, token, None);

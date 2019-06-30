@@ -29,11 +29,13 @@
 use std::collections::HashMap;
 use std::fmt;
 
+use futures::Future;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json;
 
 use crate::common::*;
+use crate::error;
 use crate::{auth, links};
 
 mod fun;
@@ -190,7 +192,7 @@ impl GeocodeBuilder {
     }
 
     ///Finalize the search parameters and return the results collection.
-    pub fn call(&self, token: &auth::Token) -> FutureResponse<SearchResult> {
+    pub fn call(&self, token: &auth::Token) -> impl Future<Item=Response<SearchResult>, Error=error::Error> {
         let mut params = HashMap::new();
 
         add_param(&mut params, "lat", self.coordinate.0.to_string());
@@ -316,7 +318,7 @@ impl<'a> SearchBuilder<'a> {
     }
 
     ///Finalize the search parameters and return the results collection.
-    pub fn call(&self, token: &auth::Token) -> FutureResponse<SearchResult> {
+    pub fn call(&self, token: &auth::Token) -> impl Future<Item=Response<SearchResult>, Error=error::Error> {
         let mut params = HashMap::new();
 
         match self.query {

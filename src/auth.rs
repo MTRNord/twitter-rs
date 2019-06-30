@@ -599,7 +599,7 @@ pub fn post_json(uri: &str, token: &Token, body: &serde_json::Value) -> Request<
 ///                                                      "https://myapp.io/auth")).unwrap();
 /// # }
 /// ```
-pub fn request_token<S: Into<String>>(con_token: &KeyPair, callback: S) -> TwitterFuture<KeyPair> {
+pub fn request_token<S: Into<String>>(con_token: &KeyPair, callback: S) -> impl Future<Item=KeyPair, Error=error::Error> {
     let header = get_header(
         Method::POST,
         links::auth::REQUEST_TOKEN,
@@ -857,7 +857,7 @@ fn fetch_urlencoded_auth(
 /// For more information, see the Twitter documentation on [Application-only authentication][auth].
 ///
 /// [auth]: https://dev.twitter.com/oauth/application-only
-pub fn bearer_token(con_token: &KeyPair) -> TwitterFuture<Token> {
+pub fn bearer_token(con_token: &KeyPair) -> impl Future<Item=Token, Error=error::Error> {
     let content = "application/x-www-form-urlencoded;charset=UTF-8";
 
     let auth_header = bearer_request(con_token);
@@ -887,7 +887,7 @@ pub fn bearer_token(con_token: &KeyPair) -> TwitterFuture<Token> {
 /// # Panics
 ///
 /// If this function is handed a `Token` that is not a Bearer token, this function will panic.
-pub fn invalidate_bearer(con_token: &KeyPair, token: &Token) -> TwitterFuture<Token> {
+pub fn invalidate_bearer(con_token: &KeyPair, token: &Token) -> impl Future<Item=Token, Error=error::Error> {
     let token = if let Token::Bearer(ref token) = *token {
         token
     } else {

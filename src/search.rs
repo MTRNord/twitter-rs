@@ -4,7 +4,7 @@
 
 //! Structs and methods for searching for tweets.
 //!
-//! Since there are several optiona parameters for searches, egg-mode handles it with a builder
+//! Since there are several optional parameters for searches, egg-mode handles it with a builder
 //! pattern. To begin, call `search` with your requested search term. Additional parameters can be
 //! added onto the `SearchBuilder` struct that is returned. When you're ready to load the first
 //! page of results, hand your tokens to `call`.
@@ -40,7 +40,7 @@
 //! page][search-place]. A future version of egg-mode might break these options into further
 //! methods on `SearchBuilder`.
 //!
-//! The lifetime parameter on `SearchBuilder`, and `SearchResult` correspond to the
+//! The lifetime parameter on `SearchBuilder` and `SearchResult` correspond to the
 //! text given as the search query and (if applicable) to the `lang` method of `SearchBuilder`. As
 //! these types use `Cow<'a, str>` internally, you can hand these types owned Strings to give them
 //! a `'static` lifetime, if necessary.

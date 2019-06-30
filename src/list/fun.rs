@@ -6,6 +6,8 @@ use super::*;
 
 use std::collections::HashMap;
 
+use futures::Future;
+
 use crate::cursor::{CursorIter, ListCursor, UserCursor};
 use crate::error::Error::TwitterError;
 use crate::user::{TwitterUser, UserID};
@@ -76,7 +78,7 @@ pub fn ownerships<'a, T: Into<UserID<'a>>>(
 }
 
 ///Look up information for a single list.
-pub fn show(list: ListID, token: &auth::Token) -> FutureResponse<List> {
+pub fn show(list: ListID, token: &auth::Token) -> impl Future<Item=Response<List>, Error=error::Error> {
     let mut params = HashMap::new();
 
     add_list_param(&mut params, &list);
@@ -115,7 +117,7 @@ pub fn is_subscribed<'id, T: Into<UserID<'id>>>(
     user: T,
     list: ListID,
     token: &auth::Token,
-) -> FutureResponse<bool> {
+) -> impl Future<Item=Response<bool>, Error=error::Error> {
     let mut params = HashMap::new();
 
     add_list_param(&mut params, &list);
@@ -151,7 +153,7 @@ pub fn is_member<'id, T: Into<UserID<'id>>>(
     user: T,
     list: ListID,
     token: &auth::Token,
-) -> FutureResponse<bool> {
+) -> impl Future<Item=Response<bool>, Error=error::Error> {
     let mut params = HashMap::new();
 
     add_list_param(&mut params, &list);
@@ -205,7 +207,7 @@ pub fn add_member<'id, T: Into<UserID<'id>>>(
     list: ListID,
     user: T,
     token: &auth::Token,
-) -> FutureResponse<List> {
+) -> impl Future<Item=Response<List>, Error=error::Error> {
     let mut params = HashMap::new();
     add_list_param(&mut params, &list);
     add_name_param(&mut params, &user.into());
@@ -232,7 +234,7 @@ pub fn add_member_list<'id, T, I>(
     members: I,
     list: ListID,
     token: &auth::Token,
-) -> FutureResponse<List>
+) -> impl Future<Item=Response<List>, Error=error::Error>
 where
     T: Into<UserID<'id>>,
     I: IntoIterator<Item = T>,
@@ -258,7 +260,7 @@ pub fn remove_member<'id, T: Into<UserID<'id>>>(
     list: ListID,
     user: T,
     token: &auth::Token,
-) -> FutureResponse<List> {
+) -> impl Future<Item=Response<List>, Error=error::Error> {
     let mut params = HashMap::new();
     add_list_param(&mut params, &list);
     add_name_param(&mut params, &user.into());
@@ -284,7 +286,7 @@ pub fn remove_member_list<'a, T, I>(
     members: I,
     list: ListID,
     token: &auth::Token,
-) -> FutureResponse<List>
+) -> impl Future<Item=Response<List>, Error=error::Error>
 where
     T: Into<UserID<'a>>,
     I: IntoIterator<Item = T>,
@@ -315,7 +317,7 @@ pub fn create(
     public: bool,
     desc: Option<&str>,
     token: &auth::Token,
-) -> FutureResponse<List> {
+) -> impl Future<Item=Response<List>, Error=error::Error> {
     let mut params = HashMap::new();
     add_param(&mut params, "name", name);
     if public {
@@ -335,7 +337,7 @@ pub fn create(
 ///Deletes the given list.
 ///
 ///The authenticated user must have created the list.
-pub fn delete(list: ListID, token: &auth::Token) -> FutureResponse<List> {
+pub fn delete(list: ListID, token: &auth::Token) -> impl Future<Item=Response<List>, Error=error::Error> {
     let mut params = HashMap::new();
     add_list_param(&mut params, &list);
 
@@ -348,7 +350,7 @@ pub fn delete(list: ListID, token: &auth::Token) -> FutureResponse<List> {
 ///
 ///Subscribing to a list is a way to make it available in the "Lists" section of a user's profile
 ///without having to create it themselves.
-pub fn subscribe(list: ListID, token: &auth::Token) -> FutureResponse<List> {
+pub fn subscribe(list: ListID, token: &auth::Token) -> impl Future<Item=Response<List>, Error=error::Error> {
     let mut params = HashMap::new();
     add_list_param(&mut params, &list);
 
@@ -358,7 +360,7 @@ pub fn subscribe(list: ListID, token: &auth::Token) -> FutureResponse<List> {
 }
 
 ///Unsubscribes the authenticated user from the given list.
-pub fn unsubscribe(list: ListID, token: &auth::Token) -> FutureResponse<List> {
+pub fn unsubscribe(list: ListID, token: &auth::Token) -> impl Future<Item=Response<List>, Error=error::Error> {
     let mut params = HashMap::new();
     add_list_param(&mut params, &list);
 

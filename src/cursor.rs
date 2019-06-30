@@ -246,7 +246,7 @@ where
     ///implementation. It is made available for those who wish to manually manage network calls and
     ///pagination.
     pub next_cursor: i64,
-    loader: Option<FutureResponse<T>>,
+    loader: Option<Box<Future<Item=Response<T>, Error=error::Error> + 'a>>,
     iter: Option<ResponseIter<T::Item>>,
 }
 
@@ -281,7 +281,7 @@ where
     ///
     ///This is intended to be used as part of this struct's Iterator implementation. It is provided
     ///as a convenience for those who wish to manage network calls and pagination manually.
-    pub fn call(&self) -> FutureResponse<T> {
+    pub fn call(&self) -> impl Future<Item=Response<T>, Error=error::Error> {
         let mut params = self.params_base.as_ref().cloned().unwrap_or_default();
 
         add_param(&mut params, "cursor", self.next_cursor.to_string());
@@ -320,7 +320,7 @@ where
 
 impl<'a, T> Stream for CursorIter<'a, T>
 where
-    T: Cursor + for<'de> Deserialize<'de> + 'a,
+    T: Cursor + for<'de> Deserialize<'de>,
 {
     type Item = Response<T::Item>;
     type Error = error::Error;
@@ -359,7 +359,7 @@ where
             }
         }
 
-        self.loader = Some(self.call());
+        self.loader = Some(Box::new(self.call()));
         self.poll()
     }
 }

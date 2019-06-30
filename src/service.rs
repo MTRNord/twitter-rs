@@ -19,6 +19,7 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
+use futures::Future;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer};
 use serde_json;
@@ -31,7 +32,7 @@ use crate::{auth, entities, error, links};
 ///
 ///While the official home of Twitter's TOS is <https://twitter.com/tos>, this allows you to obtain a
 ///plain-text copy of it to display in your application.
-pub fn terms(token: &auth::Token) -> FutureResponse<String> {
+pub fn terms(token: &auth::Token) -> impl Future<Item=Response<String>, Error=error::Error> {
     let req = auth::get(links::service::TERMS, token, None);
 
     fn parse_terms(full_resp: String, headers: &Headers) -> Result<Response<String>, error::Error> {
@@ -53,7 +54,7 @@ pub fn terms(token: &auth::Token) -> FutureResponse<String> {
 ///
 ///While the official home of Twitter's Privacy Policy is <https://twitter.com/privacy>, this allows
 ///you to obtain a plain-text copy of it to display in your application.
-pub fn privacy(token: &auth::Token) -> FutureResponse<String> {
+pub fn privacy(token: &auth::Token) -> impl Future<Item=Response<String>, Error=error::Error> {
     let req = auth::get(links::service::PRIVACY, token, None);
 
     fn parse_policy(
@@ -84,7 +85,7 @@ pub fn privacy(token: &auth::Token) -> FutureResponse<String> {
 ///fields returned by this function mean.
 ///
 ///[`Configuration`]: struct.Configuration.html
-pub fn config(token: &auth::Token) -> FutureResponse<Configuration> {
+pub fn config(token: &auth::Token) -> impl Future<Item=Response<Configuration>, Error=error::Error> {
     let req = auth::get(links::service::CONFIG, token, None);
 
     make_parsed_future(req)
@@ -97,7 +98,7 @@ pub fn config(token: &auth::Token) -> FutureResponse<Configuration> {
 ///documentation for [`RateLimitStatus`][] and its associated enums for more information.
 ///
 ///[`RateLimitStatus`]: struct.RateLimitStatus.html
-pub fn rate_limit_status(token: &auth::Token) -> FutureResponse<RateLimitStatus> {
+pub fn rate_limit_status(token: &auth::Token) -> impl Future<Item=Response<RateLimitStatus>, Error=error::Error> {
     let req = auth::get(links::service::RATE_LIMIT_STATUS, token, None);
 
     make_parsed_future(req)

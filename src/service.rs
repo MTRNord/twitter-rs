@@ -19,13 +19,13 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use serde::de::Error;
 use serde::{Deserialize, Deserializer};
+use serde::de::Error;
 use serde_json;
 
+use crate::{auth, entities, error, links};
 use crate::common::*;
 use crate::error::Error::{InvalidResponse, MissingValue};
-use crate::{auth, entities, error, links};
 
 ///Returns a future that resolves to the current Twitter Terms of Service as plain text.
 ///
@@ -484,13 +484,13 @@ pub enum ListMethod {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::common::tests::load_file;
+
+    use super::*;
 
     #[test]
     fn parse_rate_limit() {
         let sample = load_file("sample_payloads/rate_limit_sample.json");
         ::serde_json::from_str::<RateLimitStatus>(&sample).unwrap();
     }
-
 }

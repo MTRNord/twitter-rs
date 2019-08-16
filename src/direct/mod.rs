@@ -46,17 +46,18 @@ use std::collections::HashMap;
 use std::mem;
 
 use chrono;
-use futures::Future;
+use futures_core::Future;
+use futures_util::FutureExt;
 use hyper::{Body, Request};
 use serde::{Deserialize, Deserializer};
 
-use crate::common::*;
 use crate::{auth, entities, error, user};
+use crate::common::*;
+
+pub use self::fun::*;
 
 mod fun;
 mod raw;
-
-pub use self::fun::*;
 
 ///Represents a single direct message.
 ///
@@ -259,7 +260,7 @@ impl Timeline {
     ///Clear the saved IDs on this timeline, and return the most recent set of messages.
     pub fn start<'s>(
         &'s mut self,
-    ) -> impl Future<Item = Response<Vec<DirectMessage>>, Error = error::Error> + 's {
+    ) -> impl Future<Output = Result<Response<Vec<DirectMessage>>, error::Error>> + 's {
         self.reset();
         self.older(None)
     }
@@ -269,13 +270,15 @@ impl Timeline {
     pub fn older<'s>(
         &'s mut self,
         since_id: Option<u64>,
-    ) -> impl Future<Item = Response<Vec<DirectMessage>>, Error = error::Error> + 's {
+    ) -> impl Future<Output = Result<Response<Vec<DirectMessage>>, error::Error>> + 's {
         let req = self.request(since_id, self.min_id.map(|id| id - 1));
         let loader = make_parsed_future(req);
-        loader.map(move |resp: Response<Vec<DirectMessage>>| {
-            self.map_ids(&resp.response);
-            resp
-        })
+        loader.map(
+            move |resp: Result<Response<Vec<DirectMessage>>, error::Error>| {
+                self.map_ids(&resp.as_ref().unwrap().response);
+                resp
+            },
+        )
     }
 
     ///Return the set of DMs newer than the last set pulled, optionally placing a maximum DM ID to
@@ -283,13 +286,16 @@ impl Timeline {
     pub fn newer<'s>(
         &'s mut self,
         max_id: Option<u64>,
-    ) -> impl Future<Item = Response<Vec<DirectMessage>>, Error = error::Error> + 's {
+    ) -> impl Future<Output = Result<Response<Vec<DirectMessage>>, error::Error>> + 's {
         let req = self.request(self.max_id, max_id);
         let loader = make_parsed_future(req);
-        loader.map(move |resp: Response<Vec<DirectMessage>>| {
-            self.map_ids(&resp.response);
-            resp
-        })
+        loader.map(
+            move |resp: Result<Response<Vec<DirectMessage>>, error::Error>| {
+                let resp_unwraped = resp.unwrap();
+                self.map_ids(&resp_unwraped.response);
+                Ok(resp_unwraped)
+            },
+        )
     }
 
     ///Return the set of DMs between the IDs given.
@@ -303,7 +309,7 @@ impl Timeline {
         &self,
         since_id: Option<u64>,
         max_id: Option<u64>,
-    ) -> impl Future<Item = Response<Vec<DirectMessage>>, Error = error::Error> {
+    ) -> impl Future<Output = Result<Response<Vec<DirectMessage>>, error::Error>> {
         make_parsed_future(self.request(since_id, max_id))
     }
 
@@ -504,7 +510,7 @@ impl ConversationTimeline {
     ///Load messages newer than the currently-loaded set, or the newset set if no messages have
     ///been loaded yet. The complete conversation set can be viewed from the `ConversationTimeline`
     ///after it is finished loading.
-    pub fn newest(self) -> impl Future<Item = ConversationTimeline, Error = error::Error> {
+    pub fn newest(self) -> impl Future<Output = ConversationTimeline> {
         let sent = self.sent.call(self.last_sent, None);
         let received = self.received.call(self.last_received, None);
 
@@ -514,7 +520,7 @@ impl ConversationTimeline {
     ///Load messages older than the currently-loaded set, or the newest set if no messages have
     ///been loaded. The complete conversation set can be viewed from the `ConversationTimeline`
     ///after it is finished loading.
-    pub fn next(self) -> impl Future<Item = ConversationTimeline, Error = error::Error> {
+    pub fn next(self) -> impl Future<Output = ConversationTimeline> {
         let sent = self.sent.call(None, self.first_sent);
         let received = self.received.call(None, self.first_received);
 
@@ -525,13 +531,13 @@ impl ConversationTimeline {
         mut self,
         sent: S,
         received: R,
-    ) -> impl Future<Item = ConversationTimeline, Error = error::Error>
+    ) -> impl Future<Output = ConversationTimeline>
     where
-        S: Future<Item = Response<Vec<DirectMessage>>, Error = error::Error>,
-        R: Future<Item = Response<Vec<DirectMessage>>, Error = error::Error>,
+        S: Future<Output = Result<Response<Vec<DirectMessage>>, error::Error>>,
+        R: Future<Output = Result<Response<Vec<DirectMessage>>, error::Error>>,
     {
-        sent.join(received).map(|(sent, recvd)| {
-            self.merge(sent.response, recvd.response);
+        futures_util::future::join(sent, received).map(|(sent, recvd)| {
+            self.merge(sent.unwrap().response, recvd.unwrap().response);
             self
         })
     }

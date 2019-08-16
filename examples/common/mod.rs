@@ -6,12 +6,12 @@
 //that are unnecessary
 #![allow(dead_code)]
 
-use egg_mode;
 use std;
 use std::io::{Read, Write};
 
-pub use tokio::runtime::current_thread::block_on_all;
 pub use yansi::Paint;
+
+use egg_mode;
 
 //This is not an example that can be built with cargo! This is some helper code for the other
 //examples so they can load access keys from the same place.

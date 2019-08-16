@@ -57,18 +57,21 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::pin::Pin;
 
 use chrono;
-use futures::{Async, Future, Poll, Stream};
+use futures_core::{Poll, Stream};
+use futures_core::task::Context;
+use futures_util::{FutureExt, StreamExt};
 use serde::{Deserialize, Deserializer};
 
-use crate::common::*;
 use crate::{auth, entities, error, links, tweet};
+use crate::common::*;
+
+pub use self::fun::*;
 
 mod fun;
 mod raw;
-
-pub use self::fun::*;
 
 /// Convenience enum to generalize between referring to an account by numeric ID or by screen name.
 ///
@@ -419,7 +422,8 @@ pub struct UserEntityDetail {
 /// use futures::Stream;
 ///
 /// # fn main() {
-/// # let token: Token = unimplemented!();
+/// # use futures_util::StreamExt;
+/// let token: Token = unimplemented!();
 /// block_on_all(egg_mode::user::search("rustlang", &token).take(10).for_each(|resp| {
 ///     println!("{}", resp.screen_name);
 ///     Ok(())
@@ -439,6 +443,7 @@ pub struct UserEntityDetail {
 /// use egg_mode::Response;
 /// use egg_mode::user::TwitterUser;
 /// use egg_mode::error::Error;
+/// use futures_util::StreamExt;
 ///
 /// // Because Streams don't have a FromIterator adaptor, we load all the responses first, then
 /// // collect them into the final Vec
@@ -559,37 +564,38 @@ impl<'a> UserSearch<'a> {
 }
 
 impl<'a> Stream for UserSearch<'a> {
-    type Item = Response<TwitterUser>;
-    type Error = error::Error;
+    type Item = Result<Response<TwitterUser>, error::Error>;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        if let Some(mut fut) = self.current_loader.take() {
-            match fut.poll() {
-                Ok(Async::NotReady) => {
-                    self.current_loader = Some(fut);
-                    return Ok(Async::NotReady);
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let mut_self = self.get_mut();
+        if let Some(mut fut) = mut_self.current_loader.take() {
+            match fut.poll_unpin(cx) {
+                Poll::Pending => {
+                    mut_self.current_loader = Some(fut);
+                    return Poll::Pending;
                 }
-                Ok(Async::Ready(res)) => self.current_results = Some(res.into_iter()),
-                Err(e) => {
+                Poll::Ready(Ok(res)) => mut_self.current_results = Some(res.into_iter()),
+
+                Poll::Ready(Err(e)) => {
                     //Invalidate current results so we don't increment the page number again
-                    self.current_results = None;
-                    return Err(e);
+                    mut_self.current_results = None;
+                    return Poll::Ready(Some(Err(e)));
                 }
             }
         }
 
-        if let Some(ref mut results) = self.current_results {
+        if let Some(ref mut results) = mut_self.current_results {
             if let Some(user) = results.next() {
-                return Ok(Async::Ready(Some(user)));
-            } else if (results.len() as i32) < self.page_size {
-                return Ok(Async::Ready(None));
+                return Poll::Ready(Some(Ok(user)));
+            } else if (results.len() as i32) < mut_self.page_size {
+                return Poll::Ready(None);
             } else {
-                self.page_num += 1;
+                mut_self.page_num += 1;
             }
         }
 
-        self.current_loader = Some(self.call());
-        self.poll()
+        mut_self.current_loader = Some(mut_self.call());
+        mut_self.poll_next_unpin(cx)
     }
 }
 

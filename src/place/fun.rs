@@ -4,14 +4,14 @@
 
 use std::collections::HashMap;
 
-use futures::{Future, IntoFuture};
+use futures_core::Future;
 
+use crate::{auth, error, links};
 use crate::common::*;
 use crate::error::Error::BadUrl;
-use crate::{auth, error, links};
 
-use super::PlaceQuery;
 use super::*;
+use super::PlaceQuery;
 
 /// Load the place with the given ID.
 ///
@@ -95,12 +95,11 @@ fn parse_url<'a>(base: &'static str, full: &'a str) -> Result<ParamList<'a>, err
 pub fn reverse_geocode_url<'a>(
     url: &'a str,
     token: &'a auth::Token,
-) -> impl Future<Item = Response<SearchResult>, Error = error::Error> + 'a {
-    let params = parse_url(links::place::REVERSE_GEOCODE, url);
-    params.into_future().and_then(move |params| {
-        let req = auth::get(links::place::REVERSE_GEOCODE, &token, Some(&params));
-        make_parsed_future(req)
-    })
+) -> impl Future<Output = Result<Response<SearchResult>, error::Error>> + 'a {
+    // TODO handle error
+    let params = parse_url(links::place::REVERSE_GEOCODE, url).unwrap();
+    let req = auth::get(links::place::REVERSE_GEOCODE, &token, Some(&params));
+    make_parsed_future(req)
 }
 
 /// Begins building a location search via latitude/longitude.
@@ -143,12 +142,12 @@ pub fn search_point(latitude: f64, longitude: f64) -> SearchBuilder<'static> {
 /// assert!(result.results.iter().any(|pl| pl.full_name == "British Columbia, Canada"));
 /// # }
 /// ```
-pub fn search_query<'a>(query: &'a str) -> SearchBuilder<'a> {
+pub fn search_query(query: &str) -> SearchBuilder {
     SearchBuilder::new(PlaceQuery::Query(query))
 }
 
 ///Begins building a location search via an IP address.
-pub fn search_ip<'a>(query: &'a str) -> SearchBuilder<'a> {
+pub fn search_ip(query: &str) -> SearchBuilder {
     SearchBuilder::new(PlaceQuery::IPAddress(query))
 }
 
@@ -161,10 +160,8 @@ pub fn search_ip<'a>(query: &'a str) -> SearchBuilder<'a> {
 pub fn search_url<'a>(
     url: &'a str,
     token: &'a auth::Token,
-) -> impl Future<Item = Response<SearchResult>, Error = error::Error> + 'a {
-    let params = parse_url(links::place::SEARCH, url);
-    params.into_future().and_then(move |params| {
-        let req = auth::get(links::place::REVERSE_GEOCODE, &token, Some(&params));
-        make_parsed_future(req)
-    })
+) -> impl Future<Output = Result<Response<SearchResult>, error::Error>> + 'a {
+    let params = parse_url(links::place::SEARCH, url).unwrap();
+    let req = auth::get(links::place::REVERSE_GEOCODE, &token, Some(&params));
+    make_parsed_future(req)
 }

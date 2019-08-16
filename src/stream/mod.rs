@@ -43,21 +43,24 @@
 //! * In the case of an unreliable connection (e.g. mobile network), fall back to the polling API
 //!
 //! The [official guide](https://developer.twitter.com/en/docs/tweets/filter-realtime/guides/connecting) has more information.
-use std::collections::HashMap;
-use std::str::FromStr;
 use std::{self, io};
+use std::collections::HashMap;
+use std::pin::Pin;
+use std::str::FromStr;
 
-use futures::{Async, Future, Poll, Stream};
-use hyper::client::ResponseFuture;
+use futures_core::{Poll, Stream};
+use futures_core::task::Context;
+use futures_util::{FutureExt, StreamExt};
 use hyper::{Body, Request};
-use serde::de::Error;
+use hyper::client::ResponseFuture;
 use serde::{Deserialize, Deserializer};
+use serde::de::Error;
 use serde_json;
 
+use crate::{error, links};
 use crate::auth::{self, Token};
 use crate::common::*;
 use crate::tweet::Tweet;
-use crate::{error, links};
 
 // https://developer.twitter.com/en/docs/tweets/filter-realtime/guides/streaming-message-types
 /// Represents the kinds of messages that can be sent over Twitter's Streaming API.
@@ -222,72 +225,74 @@ impl TwitterStream {
 }
 
 impl Stream for TwitterStream {
-    type Item = StreamMessage;
-    type Error = error::Error;
+    type Item = Result<StreamMessage, error::Error>;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        if let Some(req) = self.request.take() {
-            self.response = Some(get_response(req)?);
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let mut_self = self.get_mut();
+        if let Some(req) = mut_self.request.take() {
+            // TODO handle error
+            mut_self.response = Some(get_response(req).unwrap());
         }
 
-        if let Some(mut resp) = self.response.take() {
-            match resp.poll() {
-                Err(e) => return Err(e.into()),
-                Ok(Async::NotReady) => {
-                    self.response = Some(resp);
-                    return Ok(Async::NotReady);
+        if let Some(mut resp) = mut_self.response.take() {
+            match resp.poll_unpin(cx) {
+                Poll::Ready(Err(e)) => return Poll::Ready(Some(Err(e.into()))),
+                Poll::Pending => {
+                    mut_self.response = Some(resp);
+                    return Poll::Pending;
                 }
-                Ok(Async::Ready(resp)) => {
+                Poll::Ready(Ok(resp)) => {
                     let status = resp.status();
                     if !status.is_success() {
                         //TODO: should i try to pull the response regardless?
-                        return Err(error::Error::BadStatus(status));
+                        return Poll::Ready(Some(Err(error::Error::BadStatus(status))));
                     }
 
-                    self.body = Some(resp.into_body());
+                    mut_self.body = Some(resp.into_body());
                 }
             }
         }
 
-        if let Some(mut body) = self.body.take() {
+        if let Some(mut body) = mut_self.body.take() {
             loop {
-                match body.poll() {
-                    Err(e) => {
-                        self.body = Some(body);
-                        return Err(e.into());
+                match body.poll_next_unpin(cx) {
+                    Poll::Ready(Some(Err(e))) => {
+                        mut_self.body = Some(body);
+                        return Poll::Ready(Some(Err(e.into())));
                     }
-                    Ok(Async::NotReady) => {
-                        self.body = Some(body);
-                        return Ok(Async::NotReady);
+                    Poll::Pending => {
+                        mut_self.body = Some(body);
+                        return Poll::Pending;
                     }
-                    Ok(Async::Ready(None)) => {
+                    Poll::Ready(None) => {
                         //TODO: introduce a new error for this?
-                        return Err(error::Error::FutureAlreadyCompleted);
+                        return Poll::Ready(Some(Err(error::Error::FutureAlreadyCompleted)));
                     }
-                    Ok(Async::Ready(Some(chunk))) => {
-                        self.buf.extend(&*chunk);
+                    Poll::Ready(Some(Ok(chunk))) => {
+                        mut_self.buf.extend(&*chunk);
 
-                        if let Some(pos) = self.buf.windows(2).position(|w| w == b"\r\n") {
-                            self.body = Some(body);
+                        if let Some(pos) = mut_self.buf.windows(2).position(|w| w == b"\r\n") {
+                            mut_self.body = Some(body);
                             let pos = pos + 2;
-                            let resp = if let Ok(msg_str) = std::str::from_utf8(&self.buf[..pos]) {
-                                StreamMessage::from_str(msg_str)
-                            } else {
-                                Err(io::Error::new(
-                                    io::ErrorKind::InvalidData,
-                                    "stream did not contain valid UTF-8",
-                                )
-                                .into())
-                            };
+                            let resp =
+                                if let Ok(msg_str) = std::str::from_utf8(&mut_self.buf[..pos]) {
+                                    StreamMessage::from_str(msg_str)
+                                } else {
+                                    Err(io::Error::new(
+                                        io::ErrorKind::InvalidData,
+                                        "stream did not contain valid UTF-8",
+                                    )
+                                    .into())
+                                };
 
-                            self.buf.drain(..pos);
-                            return Ok(Async::Ready(Some(resp?)));
+                            mut_self.buf.drain(..pos);
+                            return Poll::Ready(Some(Ok(resp?)));
                         }
                     }
                 }
             }
         } else {
-            Err(error::Error::FutureAlreadyCompleted)
+            Poll::Ready(Some(Err(error::Error::FutureAlreadyCompleted)))
         }
     }
 }
@@ -529,8 +534,9 @@ impl BoundingBox {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::common::tests::load_file;
+
+    use super::*;
 
     fn load_stream(path: &str) -> StreamMessage {
         let sample = load_file(path);

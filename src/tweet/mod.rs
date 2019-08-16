@@ -55,24 +55,27 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::pin::Pin;
 use std::str::FromStr;
 
 use chrono;
-use futures::{Async, Future, Poll};
+use futures_core::{Future, Poll};
+use futures_core::task::Context;
+use futures_util::FutureExt;
 use hyper::{Body, Request};
 use regex::Regex;
-use serde::de::Error;
 use serde::{Deserialize, Deserializer};
+use serde::de::Error;
 
+use crate::{auth, entities, error, links, place, user};
 use crate::common::*;
 use crate::error::Error::InvalidResponse;
 use crate::stream::FilterLevel;
-use crate::{auth, entities, error, links, place, user};
+
+pub use self::fun::*;
 
 mod fun;
 mod raw;
-
-pub use self::fun::*;
 
 ///Represents a single status update.
 ///
@@ -613,21 +616,21 @@ pub struct TimelineFuture<'timeline> {
 }
 
 impl<'timeline> Future for TimelineFuture<'timeline> {
-    type Item = (Timeline<'timeline>, Response<Vec<Tweet>>);
-    type Error = error::Error;
+    type Output = Result<(Timeline<'timeline>, Response<Vec<Tweet>>), error::Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.loader.poll() {
-            Err(e) => Err(e),
-            Ok(Async::NotReady) => Ok(Async::NotReady),
-            Ok(Async::Ready(resp)) => {
-                if let Some(mut timeline) = self.timeline.take() {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut_self = self.get_mut();
+        match mut_self.loader.poll_unpin(cx) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(Ok(resp)) => {
+                if let Some(mut timeline) = mut_self.timeline.take() {
                     timeline.map_ids(&resp.response);
-                    Ok(Async::Ready((timeline, resp)))
+                    Poll::Ready(Ok((timeline, resp)))
                 } else {
-                    Err(error::Error::FutureAlreadyCompleted)
+                    Poll::Ready(Err(error::Error::FutureAlreadyCompleted))
                 }
             }
+            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
         }
     }
 }
@@ -911,10 +914,11 @@ impl<'a> DraftTweet<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::Tweet;
+    use chrono::{Datelike, Timelike, Weekday};
+
     use crate::common::tests::load_file;
 
-    use chrono::{Datelike, Timelike, Weekday};
+    use super::Tweet;
 
     fn load_tweet(path: &str) -> Tweet {
         let sample = load_file(path);
@@ -1019,5 +1023,4 @@ mod tests {
             Some("test alt text for the image".to_string())
         );
     }
-
 }

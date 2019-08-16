@@ -52,12 +52,13 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt;
 
-use futures::Future;
+use futures_core::Future;
+use futures_util::FutureExt;
 use serde::{Deserialize, Deserializer};
 
+use crate::{auth, error, links};
 use crate::common::*;
 use crate::tweet::Tweet;
-use crate::{auth, error, links};
 
 ///Begin setting up a tweet search with the given query.
 pub fn search<'a, S: Into<Cow<'a, str>>>(query: S) -> SearchBuilder<'a> {
@@ -185,7 +186,7 @@ impl<'a> SearchBuilder<'a> {
     pub fn call(
         self,
         token: &auth::Token,
-    ) -> impl Future<Item = Response<SearchResult<'a>>, Error = error::Error> {
+    ) -> impl Future<Output = Result<Response<SearchResult<'a>>, error::Error>> {
         let mut params = HashMap::new();
 
         add_param(&mut params, "q", self.query);
@@ -231,9 +232,10 @@ impl<'a> SearchBuilder<'a> {
 
         let req = auth::get(links::statuses::SEARCH, token, Some(&params));
 
-        make_parsed_future(req).map(move |mut resp: Response<SearchResult>| {
-            resp.response.params = Some(params);
-            resp
+        make_parsed_future(req).map(move |resp: Result<Response<SearchResult>, error::Error>| {
+            let mut local_resp = resp.unwrap();
+            local_resp.response.params = Some(params);
+            Ok(local_resp)
         })
     }
 }
@@ -294,7 +296,7 @@ impl<'a> SearchResult<'a> {
     pub fn older(
         &self,
         token: &auth::Token,
-    ) -> impl Future<Item = Response<SearchResult<'a>>, Error = error::Error> {
+    ) -> impl Future<Output = Result<Response<SearchResult<'a>>, error::Error>> {
         let mut params = self.params.as_ref().cloned().unwrap_or_default();
         params.remove("since_id");
 
@@ -306,9 +308,10 @@ impl<'a> SearchResult<'a> {
 
         let req = auth::get(links::statuses::SEARCH, token, Some(&params));
 
-        make_parsed_future(req).map(move |mut resp: Response<SearchResult>| {
-            resp.response.params = Some(params);
-            resp
+        make_parsed_future(req).map(move |resp: Result<Response<SearchResult>, error::Error>| {
+            let mut local_resp = resp.unwrap();
+            local_resp.response.params = Some(params);
+            Ok(local_resp)
         })
     }
 
@@ -316,7 +319,7 @@ impl<'a> SearchResult<'a> {
     pub fn newer(
         &self,
         token: &auth::Token,
-    ) -> impl Future<Item = Response<SearchResult<'a>>, Error = error::Error> {
+    ) -> impl Future<Output = Result<Response<SearchResult<'a>>, error::Error>> {
         let mut params = self.params.as_ref().cloned().unwrap_or_default();
         params.remove("max_id");
 
@@ -328,9 +331,10 @@ impl<'a> SearchResult<'a> {
 
         let req = auth::get(links::statuses::SEARCH, token, Some(&params));
 
-        make_parsed_future(req).map(move |mut resp: Response<SearchResult>| {
-            resp.response.params = Some(params);
-            resp
+        make_parsed_future(req).map(move |resp: Result<Response<SearchResult>, error::Error>| {
+            let mut local_resp = resp.unwrap();
+            local_resp.response.params = Some(params);
+            Ok(local_resp)
         })
     }
 }

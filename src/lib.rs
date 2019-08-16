@@ -146,10 +146,20 @@
 
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
-#![warn(unused_qualifications)]
+
+// Makes issues with unpin
+//#![warn(unused_qualifications)]
 
 // #[macro_use]
 // extern crate serde_derive;
+
+pub use crate::auth::{
+    access_token, authenticate_url, authorize_url, bearer_token, invalidate_bearer, KeyPair,
+    request_token, Token, verify_tokens,
+};
+pub use crate::common::{
+    FutureResponse, Response, ResponseIter, ResponseIterMut, ResponseIterRef, TwitterFuture,
+};
 
 #[macro_use]
 mod common;
@@ -168,10 +178,3 @@ pub mod stream;
 pub mod tweet;
 pub mod user;
 
-pub use crate::auth::{
-    access_token, authenticate_url, authorize_url, bearer_token, invalidate_bearer, request_token,
-    verify_tokens, KeyPair, Token,
-};
-pub use crate::common::{
-    FutureResponse, Response, ResponseIter, ResponseIterMut, ResponseIterRef, TwitterFuture,
-};

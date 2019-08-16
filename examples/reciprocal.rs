@@ -2,13 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-mod common;
-
-use futures::Stream;
-use tokio::runtime::current_thread::block_on_all;
+use std::collections::HashSet;
 
 use egg_mode::user;
-use std::collections::HashSet;
+
+mod common;
 
 //IMPORTANT: see common.rs for instructions on making sure this properly authenticates with
 //Twitter.

@@ -4,9 +4,9 @@
 
 use std::collections::HashMap;
 
+use crate::{auth, links};
 use crate::common::*;
 use crate::user::UserID;
-use crate::{auth, links};
 
 use super::*;
 
@@ -14,7 +14,7 @@ use super::*;
 pub fn show(
     id: u64,
     token: &auth::Token,
-) -> impl Future<Item = Response<DirectMessage>, Error = error::Error> {
+) -> impl Future<Output = Result<Response<DirectMessage>, error::Error>> {
     let mut params = HashMap::new();
     add_param(&mut params, "id", id.to_string());
 
@@ -46,7 +46,7 @@ pub fn send<'id, T: Into<UserID<'id>>>(
     to: T,
     text: &str,
     token: &auth::Token,
-) -> impl Future<Item = Response<DirectMessage>, Error = error::Error> {
+) -> impl Future<Output = Result<Response<DirectMessage>, error::Error>> {
     let mut params = HashMap::new();
     add_name_param(&mut params, &to.into());
 
@@ -66,7 +66,7 @@ pub fn send<'id, T: Into<UserID<'id>>>(
 pub fn delete(
     id: u64,
     token: &auth::Token,
-) -> impl Future<Item = Response<DirectMessage>, Error = error::Error> {
+) -> impl Future<Output = Result<Response<DirectMessage>, error::Error>> {
     let mut params = HashMap::new();
     add_param(&mut params, "id", id.to_string());
 

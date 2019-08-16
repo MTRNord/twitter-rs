@@ -2,11 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-mod common;
-use futures::Stream;
 use tokio::runtime::current_thread::block_on_all;
 
 use egg_mode::stream::StreamMessage;
+use futures::Stream;
+
+mod common;
 
 fn main() {
     let config = common::Config::load();
@@ -20,9 +21,7 @@ fn main() {
         .for_each(|m| {
             if let StreamMessage::Tweet(tweet) = m {
                 common::print_tweet(&tweet);
-                println!(
-                    "──────────────────────────────────────"
-                );
+                println!("──────────────────────────────────────");
             } else {
                 println!("{:?}", m);
             }

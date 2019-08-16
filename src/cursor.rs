@@ -9,11 +9,15 @@
 //! module. The rest of it is available to make sure consumers of the API can understand precisely
 //! what types come out of functions that return `CursorIter`.
 
-use futures::{Async, Future, Poll, Stream};
+use std::pin::Pin;
+
+use futures_core::{Poll, Stream};
+use futures_core::task::Context;
+use futures_util::{FutureExt, StreamExt};
 use serde::Deserialize;
 
+use crate::{auth, list, user};
 use crate::common::*;
-use crate::{auth, error, list, user};
 
 ///Trait to generalize over paginated views of API results.
 ///
@@ -144,7 +148,8 @@ impl Cursor for ListCursor {
 /// use futures::Stream;
 ///
 /// # fn main() {
-/// # let token: Token = unimplemented!();
+/// # use futures_util::StreamExt;
+/// let token: Token = unimplemented!();
 /// block_on_all(egg_mode::user::followers_of("rustlang", &token).take(10).for_each(|resp| {
 ///     println!("{}", resp.screen_name);
 ///     Ok(())
@@ -164,6 +169,7 @@ impl Cursor for ListCursor {
 /// use egg_mode::Response;
 /// use egg_mode::user::TwitterUser;
 /// use egg_mode::error::Error;
+/// use futures_util::StreamExt;
 ///
 /// // Because Streams don't have a FromIterator adaptor, we load all the responses first, then
 /// // collect them into the final Vec
@@ -321,45 +327,48 @@ where
 impl<'a, T> Stream for CursorIter<'a, T>
 where
     T: Cursor + for<'de> Deserialize<'de> + 'a,
+    <T as Cursor>::Item: std::marker::Unpin,
 {
     type Item = Response<T::Item>;
-    type Error = error::Error;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        if let Some(mut fut) = self.loader.take() {
-            match fut.poll() {
-                Ok(Async::NotReady) => {
-                    self.loader = Some(fut);
-                    return Ok(Async::NotReady);
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let mut mut_self = self.get_mut();
+        if let Some(mut fut) = mut_self.loader.take() {
+            match fut.poll_unpin(cx) {
+                Poll::Pending => {
+                    mut_self.loader = Some(fut);
+                    return Poll::Pending;
                 }
-                Ok(Async::Ready(resp)) => {
-                    self.previous_cursor = resp.previous_cursor_id();
-                    self.next_cursor = resp.next_cursor_id();
+                Poll::Ready(Ok(resp)) => {
+                    mut_self.previous_cursor = resp.previous_cursor_id();
+                    mut_self.next_cursor = resp.next_cursor_id();
 
                     let resp = Response::map(resp, |r| r.into_inner());
 
                     let mut iter = resp.into_iter();
                     let first = iter.next();
-                    self.iter = Some(iter);
+                    mut_self.iter = Some(iter);
 
                     match first {
-                        Some(item) => return Ok(Async::Ready(Some(item))),
-                        None => return Ok(Async::Ready(None)),
+                        Some(item) => return Poll::Ready(Some(item)),
+                        None => return Poll::Ready(None),
                     }
                 }
-                Err(e) => return Err(e),
+                Poll::Ready(Err(_)) => {
+                    return Poll::Ready(None);
+                }
             }
         }
 
-        if let Some(ref mut results) = self.iter {
+        if let Some(ref mut results) = mut_self.iter {
             if let Some(item) = results.next() {
-                return Ok(Async::Ready(Some(item)));
-            } else if self.next_cursor == 0 {
-                return Ok(Async::Ready(None));
+                return Poll::Ready(Some(item));
+            } else if mut_self.next_cursor == 0 {
+                return Poll::Ready(None);
             }
         }
 
-        self.loader = Some(self.call());
-        self.poll()
+        mut_self.loader = Some(mut_self.call());
+        mut_self.poll_next_unpin(cx)
     }
 }

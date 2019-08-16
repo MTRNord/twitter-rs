@@ -118,13 +118,13 @@ use std::iter::Peekable;
 use chrono::{self, TimeZone};
 use hyper::header::{HeaderMap, HeaderValue};
 use mime;
-use serde::de::Error;
 use serde::{Deserialize, Deserializer};
+use serde::de::Error;
+
+use crate::{list, user};
+pub use crate::common::response::*;
 
 mod response;
-
-pub use crate::common::response::*;
-use crate::{list, user};
 
 pub type Headers = HeaderMap<HeaderValue>;
 
@@ -318,9 +318,10 @@ where
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use super::*;
     use std::fs::File;
     use std::io::Read;
+
+    use super::*;
 
     pub(crate) fn load_file(path: &str) -> String {
         let mut file = File::open(path).unwrap();
@@ -340,9 +341,6 @@ pub(crate) mod tests {
 
         let mut range = (6, 30);
         codepoints_to_bytes(&mut range, unicode);
-        assert_eq!(
-            &unicode[range.0..range.1],
-            "Iñtërnâtiônàližætiøn ënd"
-        );
+        assert_eq!(&unicode[range.0..range.1], "Iñtërnâtiônàližætiøn ënd");
     }
 }

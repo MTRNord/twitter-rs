@@ -13,17 +13,18 @@ use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64;
-use futures::{Future, IntoFuture};
+use futures_core::Future;
+use futures_util::{future, TryFutureExt};
 use hmac::{Hmac, Mac};
-use hyper::header::{AUTHORIZATION, CONTENT_TYPE};
 use hyper::{Body, Method, Request};
+use hyper::header::{AUTHORIZATION, CONTENT_TYPE};
 use rand::{self, Rng};
 use serde_json;
 use sha1::Sha1;
-use url::percent_encoding::{utf8_percent_encode, EncodeSet, PercentEncode};
+use url::percent_encoding::{EncodeSet, PercentEncode, utf8_percent_encode};
 
-use crate::common::*;
 use crate::{error, links};
+use crate::common::*;
 
 //the encode sets in the url crate don't quite match what twitter wants, so i'll make up my own
 #[derive(Copy, Clone)]
@@ -772,7 +773,7 @@ pub fn access_token<S: Into<String>>(
     con_token: KeyPair,
     request_token: &KeyPair,
     verifier: S,
-) -> impl Future<Item = (Token, u64, String), Error = error::Error> {
+) -> impl Future<Output = Result<(Token, u64, String), error::Error>> {
     let header = get_header(
         Method::POST,
         links::auth::ACCESS_TOKEN,
@@ -786,7 +787,7 @@ pub fn access_token<S: Into<String>>(
     request.header(AUTHORIZATION, header.to_string());
 
     let loader = make_raw_future(request.body(Body::empty()).unwrap());
-    loader.and_then(|resp| fetch_urlencoded_auth(&resp, con_token).into_future())
+    loader.and_then(|resp| future::ok(fetch_urlencoded_auth(&resp, con_token).unwrap()))
 }
 
 fn fetch_urlencoded_auth(

@@ -2,13 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-mod common;
-
-use tokio::runtime::current_thread::block_on_all;
+use std::io::{BufRead, stdin};
 
 use egg_mode::search::{self, ResultType};
 
-use std::io::{stdin, BufRead};
+mod common;
 
 fn main() {
     let config = common::Config::load();
